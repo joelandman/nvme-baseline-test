@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 use strict;
-
+my $MNTP ="/data";
 my ($conf,$dir,$sfn,$sfh,$ojfn,$ojfh,$ts);
 my @num = (1 .. 20);
 my @blk = ("4k","8k","32k","128k","512k","2M","8M");
@@ -14,14 +14,14 @@ $ts  = time;
 
 open($sfh,"> run_all.bash");
 printf $sfh '#!/bin/bash'."\n\n";
-map {printf $sfh 'mkdir -p /data/%i/test'."\n",$_ } (0 .. $lastn-1);
+map {printf $sfh 'mkdir -p %s/%i/test'."\n",$MNTP,$_ } (0 .. $lastn-1);
 
 foreach my $n (@num) {
     foreach my $bsize (@blk) {
     printf $sfh '# n=%i, blk_size=%s'."\n",$n,$bsize;
     $ojfn = sprintf "sw_%i_%s.fio",$n,$bsize;
     open($ojfh, ">".$ojfn);
-    printf $sfh "mkdir -p /data/{%s}/test\n",join(",",(0 .. $n-1));
+    printf $sfh "mkdir -p %s/{%s}/test\n",$MNTP,join(",",(0 .. $n-1));
     printf $sfh "fio %s > stdout.%s 2> stderr.%s \n",$ojfn,$ojfn,$ojfn;
     printf $ojfh "%s\n",&fio_job_1($size,"write",$bsize,4,$n);
     close($ojfh);
@@ -71,7 +71,7 @@ rw=%s
 
 ",$size,$blocksize,$n_per_dir,$type;
 foreach my $i (1 .. $ndir) {
-    $template .= sprintf "\n[d%i]\ndirectory=/data/%i/test\n",$i,$i-1;
+    $template .= sprintf "\n[d%i]\ndirectory=%s/%i/test\n",$i,$MNTP,$i-1;
 }
 return $template;
 }
