@@ -1,0 +1,165 @@
+Its all about the base.pl, and fio.  You will need fio in your path.  
+
+If you do not have an up to date version of fioi *WITH AIO*, do this:
+
+	git clone https://github.com/axboe/fio
+	cd fio
+	make -j8
+	make install
+	which fio
+
+If you don't have aio (you will see Linux AIO "no" in the configuration), then please
+install this from your package manager. 
+
+CentOS/RedHat:		yum install libaio libaio-devel
+
+Debian/Ubuntu:		apt-get install libaio0 libaio-dev
+
+and then rebuild fio.
+
+Please note:  If you install fio from package manager, it is possible that the version
+it uses doesn't have aio support.  
+
+While aio support is very helpful, you can run this without aio support.  Simply do this
+
+	sed -i.backup 's|ioengine=aio|ioengine=sync|g' base.pl
+
+and it will change this to use the sync io engine.  AIO will be more favorable to SSDs,
+and show more of their potential, but sync should be fine.  You may also use vsync,
+mmap, and others, though you will find performance differences amongst them.
+
+
+QUICK CHECK
+
+	1) test that fio is visible and in your path
+
+		which fio
+
+	   This should return a full path to fio.  If not, you may have to adjust
+	   your path to make this so.
+
+	2) test to make sure base.pl is executable
+
+		ls -alF base.pl
+
+	   If it is not, you may need to do this:
+
+		chmod +x base.pl
+
+	3) Adjust the mount points (MNTP) in the scripts to reflect where you
+	   want the NVMe mounted.  We use /data as the top level mount.  You
+	   may change it, but we recommend testing the change.
+
+
+RUNNING
+
+	pre) prepare a test directory you will run in.  Base.pl will automatically
+	     generate a run_script.bash and many files named type_N_size.fio, where
+	     type is 
+
+		sw == sequential write
+		sr == sequential read
+		rw == random write
+		rr == random read
+
+	     so as not to polute your existing directory, it is best to
+
+		mkdir test
+		cp base.pl make_file_systems_and_mount_directories.bash \
+			mount_directories.bash test
+
+	     before you run it.
+
+	     get into the test directory
+
+		cd test
+
+	     currently the base.pl has a hardwired number of devices (as 
+	     do the other scripts).  This is easy to change, but we haven't made
+	     it completely trivial yet.  If you need to change it, just alter
+	     the 24 you see everywhere to some other number that makes sense
+	     for your system.  
+
+	1) mount the directories.  If you haven't created a file system on the 
+	   NVMes, then you can run the  
+
+		make_file_systems_and_mount_directories.bash
+
+	   Please note:  this *WILL DESTROY* any data on the NVMe devices.
+	   If you prefer to mount the NVMe without destroying data, use
+	   the 
+
+		mount_directories.bash	
+
+	   script instead.
+
+	2) run the base.pl .  It will run very quickly, as all it is doing generating
+	   a run script and input decks for fio.
+
+	3) quick sanity check your system
+
+		fio sw_1_128k.fio
+
+	   You should see expected IO performance for sequential writes with 128k
+	   block size.  If not, something is wrong.
+
+	4) run the script
+
+		nohup ./run_all.bash > out 2> err &
+
+	   This will take some time, as it is a brute force/naive parameter sweep.
+	   You can watch system progress with
+
+		dstat
+
+	   or
+
+		vmstat 1
+
+	   or 
+	
+		htop
+
+	   or
+
+		atop 1
+
+
+	   or
+
+		perf top
+
+	   or ....
+
+To recover data from the system as it is running
+
+	egrep '(READ|WRITE)' std*.fio
+
+stdout.sr_1_128k.fio:   READ: io=40960MB, aggrb=985.58MB/s, minb=985.58MB/s, maxb=985.58MB/s, mint=41560msec, maxt=41560msec
+stdout.sr_1_2M.fio:   READ: io=40960MB, aggrb=985.97MB/s, minb=985.97MB/s, maxb=985.97MB/s, mint=41544msec, maxt=41544msec
+stdout.sr_1_32k.fio:   READ: io=40960MB, aggrb=987.12MB/s, minb=987.12MB/s, maxb=987.12MB/s, mint=41499msec, maxt=41499msec
+stdout.sr_1_4k.fio:   READ: io=40960MB, aggrb=977.49MB/s, minb=977.49MB/s, maxb=977.49MB/s, mint=41904msec, maxt=41904msec
+stdout.sr_1_512k.fio:   READ: io=40960MB, aggrb=999310KB/s, minb=999310KB/s, maxb=999310KB/s, mint=41972msec, maxt=41972msec
+stdout.sr_1_8k.fio:   READ: io=40960MB, aggrb=978.25MB/s, minb=978.25MB/s, maxb=978.25MB/s, mint=41871msec, maxt=41871msec
+stdout.sr_1_8M.fio:   READ: io=40960MB, aggrb=996011KB/s, minb=996011KB/s, maxb=996011KB/s, mint=42111msec, maxt=42111msec
+stdout.sw_1_128k.fio:  WRITE: io=40960MB, aggrb=823688KB/s, minb=823688KB/s, maxb=823688KB/s, mint=50921msec, maxt=50921msec
+stdout.sw_1_2M.fio:  WRITE: io=40960MB, aggrb=815821KB/s, minb=815821KB/s, maxb=815821KB/s, mint=51412msec, maxt=51412msec
+stdout.sw_1_32k.fio:  WRITE: io=40960MB, aggrb=846154KB/s, minb=846154KB/s, maxb=846154KB/s, mint=49569msec, maxt=49569msec
+stdout.sw_1_4k.fio:  WRITE: io=40960MB, aggrb=711055KB/s, minb=711055KB/s, maxb=711055KB/s, mint=58987msec, maxt=58987msec
+stdout.sw_1_512k.fio:  WRITE: io=40960MB, aggrb=832153KB/s, minb=832153KB/s, maxb=832153KB/s, mint=50403msec, maxt=50403msec
+stdout.sw_1_8k.fio:  WRITE: io=40960MB, aggrb=817890KB/s, minb=817890KB/s, maxb=817890KB/s, mint=51282msec, maxt=51282msec
+stdout.sw_1_8M.fio:  WRITE: io=40960MB, aggrb=838022KB/s, minb=838022KB/s, maxb=838022KB/s, mint=50050msec, maxt=50050msec
+
+TODO:
+
+	1) make configuration easier.  In process, will have config
+	   files and other bits
+
+	2) analysis tools.  In process, will generate some nice tabular data
+
+
+WARRANTY:  None.  Use at your own risk.  
+
+CONTACT:   email:    Joe Landman (landman@scalableinformatics.com)
+	   web:      https://scalableinformatics.com
+
